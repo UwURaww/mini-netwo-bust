@@ -11,7 +11,7 @@
 
 
 
-# Chatalog
-## 2.0 
+## Chatalog
+ 2.0 
  1. added "Dead" option after "Dommed" option
 ---------------------------------------------
